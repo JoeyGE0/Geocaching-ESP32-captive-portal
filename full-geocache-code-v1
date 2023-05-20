@@ -1,0 +1,202 @@
+//code by JoeyGE0 (there are major bugs in this version) Version: 1.00 (unstable/buggy)
+
+#include <WiFi.h>
+#include <DNSServer.h>
+#include <WebServer.h>
+#include <WiFiManager.h>
+
+IPAddress staticIP(192, 168, 1, 50);
+IPAddress gateway(192, 168, 68, 1);
+IPAddress subnet(255, 255, 255, 0);
+
+DNSServer dnsServer;
+WebServer server(80);
+
+const int ledPin = 2;
+const int buzzerPin = 4;
+
+bool darkMode = false; // Dark mode flag
+
+const char* htmlPage = "<style type=\"text/css\">\
+                        .top-bar {\
+                          background-color: #007bff;\
+                          height: 40px;\
+                        }\
+                        .settings-button {\
+                          position: absolute;\
+                          top: 0;\
+                          right: 10px;\
+                          font-size: 14px;\
+                          font-family: Arial, Helvetica, sans-serif;\
+                          font-size: 14px;\
+                          font-weight: bold;\
+                          color: #000000;\
+                          cursor: pointer;\
+                        }\
+                        .logs-container {\
+                          position: fixed;\
+                          top: 25%;\
+                          left: 50%;\
+                          transform: translate(-50%, -50%);\
+                          background-color: rgba(255, 255, 255, 0.9);\
+                          padding: 80px;\
+                          border-radius: 10px;\
+                          z-index: 999;\
+                          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);\
+                          display: none;\
+                        }\
+                        .close-button {\
+                          position: absolute;\
+                          top: 10px;\
+                          right: 10px;\
+                          font-size: 18px;\
+                          color: #333;\
+                          cursor: pointer;\
+                        }\
+                        .dark-mode-container {\
+                          display: flex;\
+                          align-items: center;\
+                          justify-content: center;\
+                          margin-bottom: 20px;\
+                        }\
+                        .dark-mode-container label {\
+                          margin-right: 10px;\
+                          font-weight: bold;\
+                        }\
+                        </style>\
+                        <h1 class=\"top-bar\"><span style=\"color:#000000;\"><span style=\"font-family:Arial,Helvetica,sans-serif;\"><strong>&nbsp; &nbsp;<span style=\"font-size:14px;\"><span style=\"background-color:#ffffff;\">JoeyGE0-GCA8GCR&nbsp;</span></span></strong></span></span><span class=\"settings-button\" id=\"settingsButton\">Settings</span></h1>\
+                        <p>&nbsp;</p>\
+                        <p>&nbsp;</p>\
+                        <h2 style=\"text-align:center\"><strong><span style=\"font-family:Verdana,Geneva,sans-serif\">Congrats on finding this webpage!</span></strong></h2>\
+                        <p style=\"text-align:center\"><strong><span style=\"font-family:Verdana,Geneva,sans-serif\">Click the button below to open/close the cache</span></strong></p>\
+                        <p style=\"text-align:center\">&nbsp;</p>\
+                        <style type=\"text/css\">\
+                        .button {\
+                          font-size: 18px;\
+                          padding: 12px 24px;\
+                          border: none;\
+                          color: white;\
+                          background-color: #007bff;\
+                          border-radius: 25px;\
+                          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);\
+                          transition: transform 0.2s ease;\
+                        }\
+                        .button:hover {\
+                          transform: scale(1.05);\
+                        }\
+                        .button:active {\
+                          transform: scale(0.95);\
+                        }\
+                        </style>\
+                        <p style=\"text-align: center;\"><button class=\"button\" id=\"toggleButton\" type=\"button\">Lock/unlock</button></p>\
+                        <div class=\"logs-container\">\
+                          <h3 style=\"text-align: center;\"><span style=\"font-family:Tahoma,Geneva,sans-serif;\"><strong><u>Settings:</u></strong></span></h3>\
+                          <div class=\"dark-mode-container\">\
+                            <label for=\"darkModeToggle\">Dark Mode:</label>\
+                            <input type=\"checkbox\" id=\"darkModeToggle\" name=\"darkModeToggle\">\
+                          </div>\
+                          <p style=\"text-align:center\">&nbsp;</p>\
+                          <p style=\"text-align:center\"><button class=\"button\" id=\"restartButton\" type=\"button\">Restart ESP</button></p>\
+                          <p style=\"text-align:center\"><span class=\"close-button\">X</span></p>\
+                        </div>\
+                        <script>\
+                        var button = document.getElementById(\"toggleButton\");\
+                        button.addEventListener(\"click\", function() {\
+                          fetch('/toggle')\
+                            .then(response => response.text())\
+                            .then(data => {\
+                              console.log(data);\
+                            });\
+                        });\
+                        var settingsButton = document.getElementById(\"settingsButton\");\
+                        var logsContainer = document.querySelector('.logs-container');\
+                        settingsButton.addEventListener(\"click\", function() {\
+                          logsContainer.style.display = 'block';\
+                        });\
+                        var closeButton = logsContainer.querySelector('.close-button');\
+                        closeButton.addEventListener('click', function() {\
+                          logsContainer.style.display = 'none';\
+                        });\
+                        var darkModeToggle = document.getElementById('darkModeToggle');\
+                        darkModeToggle.addEventListener('change', function() {\
+                          if (darkModeToggle.checked) {\
+                            document.body.style.backgroundColor = '#000000';\
+                            document.body.style.color = '#ffffff';\
+                            document.querySelector('.logs-container').style.backgroundColor = '#353535';\
+                            document.querySelector('.logs-container').style.color = '#ffffff';\
+                            darkMode = true;\
+                          } else {\
+                            document.body.style.backgroundColor = '';\
+                            document.body.style.color = '';\
+                            document.querySelector('.logs-container').style.backgroundColor = '';\
+                            document.querySelector('.logs-container').style.color = '';\
+                            darkMode = false;\
+                          }\
+                        });\
+                        </script>";
+
+
+int numClients = 0;
+bool buzzerOn = false;
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW);  // turn off LED at the beginning
+  pinMode(buzzerPin, OUTPUT);
+  digitalWrite(buzzerPin, LOW);  // turn off buzzer at the beginning
+
+  Serial.begin(115200);
+  delay(1000);
+
+  digitalWrite(buzzerPin, HIGH); // make a short beep when booted
+  delay(50);
+  digitalWrite(buzzerPin, LOW);
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(staticIP, gateway, subnet);
+  WiFi.softAP("Your AP name here");
+
+  dnsServer.start(53, "*", staticIP);
+
+  server.onNotFound([]() {
+    server.send(200, "text/html", htmlPage);
+  });
+
+  server.on("/toggle", []() {
+    buzzerOn = !buzzerOn;
+
+    String logMessage = "Buzzer is ";
+    logMessage += (buzzerOn ? "on" : "off");
+    Serial.println(logMessage);
+
+    digitalWrite(buzzerPin, buzzerOn ? HIGH : LOW);
+
+    server.send(200, "text/html", htmlPage);
+  });
+
+  server.begin();
+
+  Serial.println(" These are the logs for the ESP.");
+  Serial.print("ESP IP Address: ");
+  Serial.println(staticIP);
+}
+
+void loop() {
+  dnsServer.processNextRequest();
+  server.handleClient();
+
+  int connectedClients = WiFi.softAPgetStationNum();
+
+  // update number of clients connected and turn on LED if a new client connected
+  if (connectedClients != numClients) {
+    numClients = connectedClients;
+    if (numClients > 0) {
+      digitalWrite(ledPin, HIGH);
+      Serial.print("New client connected! Total clients: ");
+      Serial.println(numClients);
+    } else {
+      digitalWrite(ledPin, LOW);
+      Serial.println("All clients disconnected.");
+    }
+  }
+}
