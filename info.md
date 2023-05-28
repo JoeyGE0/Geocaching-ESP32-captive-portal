@@ -21,12 +21,6 @@ To set up the ESP32 Cache project, follow these steps:
 3. after flashed connect to the esp Wi-Fi network, which will be named "UNNAMED".
 4. or open a web browser and enter the IP address displayed on the ESP32's serial monitor.
 
-## Usage
-
-Once the ESP32 Cache project is set up, you can perform the following actions:
-
-- Toggle the buzzer: Click the "Lock/unlock" button on the web interface to turn the buzzer on or off.
-- View uptime: The web interface displays the cache's uptime in hours, minutes, and seconds.
 
 ## Customization
 
