@@ -2,7 +2,6 @@
 //Code by JoeyGE0. intended for a geocache.
 // Please give credit if possible.
 //version: 1.10 (stable/small bugs)
-
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <WebServer.h>
@@ -15,12 +14,12 @@ IPAddress subnet(255, 255, 255, 0);
 DNSServer dnsServer;
 WebServer server(80);
 
-const int ledPin = 2; //blue led on esp
-const int buzzerPin = 4; //external buzzer
+const int ledPin = 2;    // blue led on esp
+const int buzzerPin = 4; // external buzzer
 
 bool darkMode = false; // Dark mode flag
-//put your html below or chnage to your liking
-const char* htmlPage = "<style type=\"text/css\">\
+// put your html below or change it to your liking
+const char *htmlPage = "<style type=\"text/css\">\
                         .top-bar {\
                           background-color: #007bff;\
                           height: 40px;\
@@ -157,6 +156,14 @@ const char* htmlPage = "<style type=\"text/css\">\
                               uptimeElement.innerText = hours + 'h:' + minutes + 'm:' + seconds + 's';\
                             });\
                         }, 1000);\
+                        var restartButton = document.getElementById('restartButton');\
+                        restartButton.addEventListener('click', function() {\
+                          fetch('/restart')\
+                            .then(response => response.text())\
+                            .then(data => {\
+                              console.log(data);\
+                            });\
+                        });\
                         </script>";
 
 int numClients = 0;
@@ -202,6 +209,12 @@ void setup() {
   server.on("/uptime", []() {
     unsigned long uptime = millis() - uptimeStart;
     server.send(200, "text/plain", String(uptime / 1000));
+  });
+
+  server.on("/restart", []() {
+    server.send(200, "text/plain", "Restarting ESP...");
+    delay(2000); // Delay to allow the response to be sent
+    ESP.restart();
   });
 
   server.begin();
