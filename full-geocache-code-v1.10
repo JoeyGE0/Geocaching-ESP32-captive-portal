@@ -1,22 +1,24 @@
-//code by JoeyGE0 (there are major bugs in this version) Version: 1.00 (unstable/buggy)
-
+//Code on https://github.com/JoeyGE0/Geocaching-ESP32-captive-portal
+//Code by JoeyGE0. intended for a geocache.
+// Please give credit if possible.
+//version: 1.10 (stable/small bugs)
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <WiFiManager.h>
 
-IPAddress staticIP(192, 168, 1, 50);
+IPAddress staticIP(192, 168, 1, 50); // ip address of the esp
 IPAddress gateway(192, 168, 68, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 DNSServer dnsServer;
 WebServer server(80);
 
-const int ledPin = 2;
-const int buzzerPin = 4;
+const int ledPin = 2; //blue led on esp
+const int buzzerPin = 4; //external buzzer
 
 bool darkMode = false; // Dark mode flag
-
+//put your html below or chnage to your liking
 const char* htmlPage = "<style type=\"text/css\">\
                         .top-bar {\
                           background-color: #007bff;\
@@ -63,6 +65,13 @@ const char* htmlPage = "<style type=\"text/css\">\
                           margin-right: 10px;\
                           font-weight: bold;\
                         }\
+                        .last-updated {\
+                          font-size: 10px;\
+                          font-family: Arial, Helvetica, sans-serif;\
+                          color: #999;\
+                          margin-top: 20px;\
+                          text-align: center;\
+                        }\
                         </style>\
                         <h1 class=\"top-bar\"><span style=\"color:#000000;\"><span style=\"font-family:Arial,Helvetica,sans-serif;\"><strong>&nbsp; &nbsp;<span style=\"font-size:14px;\"><span style=\"background-color:#ffffff;\">JoeyGE0-GCA8GCR&nbsp;</span></span></strong></span></span><span class=\"settings-button\" id=\"settingsButton\">Settings</span></h1>\
                         <p>&nbsp;</p>\
@@ -98,6 +107,7 @@ const char* htmlPage = "<style type=\"text/css\">\
                           <p style=\"text-align:center\">&nbsp;</p>\
                           <p style=\"text-align:center\"><button class=\"button\" id=\"restartButton\" type=\"button\">Restart ESP</button></p>\
                           <p style=\"text-align:center\"><span class=\"close-button\">X</span></p>\
+                          <p class=\"last-updated\">Last Updated: May 28, 2023 | Uptime: <span id=\"uptime\"></span></p>\
                         </div>\
                         <script>\
                         var button = document.getElementById(\"toggleButton\");\
@@ -133,11 +143,25 @@ const char* htmlPage = "<style type=\"text/css\">\
                             darkMode = false;\
                           }\
                         });\
+                        var uptimeElement = document.getElementById('uptime');\
+                        setInterval(function() {\
+                          fetch('/uptime')\
+                            .then(response => response.text())\
+                            .then(data => {\
+                              var seconds = parseInt(data, 10);\
+                              var hours = Math.floor(seconds / 3600);\
+                              seconds %= 3600;\
+                              var minutes = Math.floor(seconds / 60);\
+                              seconds %= 60;\
+                              uptimeElement.innerText = hours + 'h:' + minutes + 'm:' + seconds + 's';\
+                            });\
+                        }, 1000);\
                         </script>";
-
 
 int numClients = 0;
 bool buzzerOn = false;
+
+unsigned long uptimeStart = 0;
 
 void setup() {
   pinMode(ledPin, OUTPUT);
@@ -148,13 +172,13 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  digitalWrite(buzzerPin, HIGH); // make a short beep when booted
+  digitalWrite(buzzerPin, HIGH); // make a short beep
   delay(50);
   digitalWrite(buzzerPin, LOW);
 
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(staticIP, gateway, subnet);
-  WiFi.softAP("Your AP name here");
+  WiFi.softAP("JoeyGE0"); //this is the AP name
 
   dnsServer.start(53, "*", staticIP);
 
@@ -174,10 +198,17 @@ void setup() {
     server.send(200, "text/html", htmlPage);
   });
 
+  server.on("/uptime", []() {
+    unsigned long uptime = millis() - uptimeStart;
+    server.send(200, "text/plain", String(uptime / 1000));
+  });
+
   server.begin();
 
-  Serial.println(" These are the logs for the ESP.");
-  Serial.print("ESP IP Address: ");
+  uptimeStart = millis();
+
+  Serial.println("GCA8GCR-A cache by JoeyGE0. These are the logs for the cache.");
+  Serial.print("Cache IP Address: ");
   Serial.println(staticIP);
 }
 
