@@ -16,6 +16,7 @@ WebServer server(80);
 
 const int ledPin = 2;    // blue led on esp
 const int buzzerPin = 4; // external buzzer
+const int wateringressPin = 15; // for the water ingress wires
 
 bool darkMode = false; // Dark mode flag
 // put your html below or change it to your liking
@@ -105,9 +106,9 @@ const char *htmlPage = "<style type=\"text/css\">\
                             <input type=\"checkbox\" id=\"darkModeToggle\" name=\"darkModeToggle\">\
                           </div>\
                           <p style=\"text-align:center\">&nbsp;</p>\
-                          <p style=\"text-align:center\"><button class=\"button\" id=\"restartButton\" type=\"button\">Restart ESP</button></p>\
+                          <p style=\"text-align:center\"><button class=\"button\" id=\"restartButton\" type=\"button\" style=\"background-color:#FD4646;\">Restart ESP</button></p>\
                           <p style=\"text-align:center\"><span class=\"close-button\">X</span></p>\
-                          <p class=\"last-updated\">Last Updated: May 28, 2023 | Uptime: <span id=\"uptime\"></span></p>\
+                          <p class=\"last-updated\">Last Updated firmware: May 28, 2023 | Uptime: <span id=\"uptime\"></span></p>\
                         </div>\
                         <script>\
                         var button = document.getElementById(\"toggleButton\");\
@@ -169,6 +170,8 @@ const char *htmlPage = "<style type=\"text/css\">\
 int numClients = 0;
 bool buzzerOn = false;
 
+bool waterDetected = false; // Flag for water detection
+
 unsigned long uptimeStart = 0;
 
 void setup() {
@@ -176,6 +179,7 @@ void setup() {
   digitalWrite(ledPin, LOW);  // turn off LED at the beginning
   pinMode(buzzerPin, OUTPUT);
   digitalWrite(buzzerPin, LOW);  // turn off buzzer at the beginning
+  pinMode(wateringressPin, INPUT_PULLUP); // configure water ingress pin as input with internal pull-up resistor
 
   Serial.begin(115200);
   delay(1000);
@@ -243,5 +247,12 @@ void loop() {
       digitalWrite(ledPin, LOW);
       Serial.println("All clients disconnected.");
     }
+  }
+
+  // Check if water has been detected
+  if (digitalRead(wateringressPin) == LOW && !waterDetected) {
+    Serial.println("WATER INGRESS DETECTED! CONTACT JOEYGE0 ASAP!");
+    
+    waterDetected = true;
   }
 }
