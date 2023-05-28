@@ -1,7 +1,7 @@
 //Code on https://github.com/JoeyGE0/Geocaching-ESP32-captive-portal
 //Code by JoeyGE0. intended for a geocache.
 // Please give credit if possible.
-//version: 1.10 (stable/small bugs)
+//version: 1.21 (stable/small bugs)
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <WebServer.h>
