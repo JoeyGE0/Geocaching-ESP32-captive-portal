@@ -40,4 +40,4 @@ The ESP32 Cache project relies on the following libraries:
 ## Help
 If Captive portal wont open. Open a web browser and enter the IP address displayed on the ESP32's serial monitor default is 192.168.1.50.
 
-Why is it taking so long to connect and open? this problem has not been fixed yet and may be fixed in the future.
+Why is it taking so long to connect and open? this can be caused from lots of issues. please update to 2.00 or above 
