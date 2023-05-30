@@ -1,14 +1,14 @@
 //Code on https://github.com/JoeyGE0/Geocaching-ESP32-captive-portal
 //Code by JoeyGE0. intended for a geocache.
 // Please give credit if possible.
-//version: 1.21 (stable/small bugs)
+//version: 2.00 (stable/small dark mode bugs)
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <WiFiManager.h>
 
-IPAddress staticIP(192, 168, 1, 50); // ip address of the esp
-IPAddress gateway(192, 168, 68, 1);
+IPAddress staticIP(4, 3, 2, 1); // ip address of the esp if changed it can affect load speeds. dont ask me why
+IPAddress gateway(4, 3, 2, 1); //gateway of the esp if changed it can affect load speeds. dont ask me why
 IPAddress subnet(255, 255, 255, 0);
 
 DNSServer dnsServer;
@@ -23,12 +23,12 @@ bool darkMode = false; // Dark mode flag
 const char *htmlPage = "<style type=\"text/css\">\
                         .top-bar {\
                           background-color: #007bff;\
-                          height: 40px;\
+                          height: 50px;\
                         }\
                         .settings-button {\
                           position: absolute;\
-                          top: 0;\
-                          right: 10px;\
+                          top: 20;\
+                          right: 20px;\
                           font-size: 14px;\
                           font-family: Arial, Helvetica, sans-serif;\
                           font-size: 14px;\
@@ -73,6 +73,22 @@ const char *htmlPage = "<style type=\"text/css\">\
                           margin-top: 20px;\
                           text-align: center;\
                         }\
+                        .popup-container {\
+                          position: fixed;\
+                          top: 25%;\
+                          left: 50%;\
+                          transform: translate(-50%, -50%);\
+                          background-color: rgba(255, 255, 255, 0.9);\
+                          padding: 40px;\
+                          border-radius: 10px;\
+                          z-index: 999;\
+                          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);\
+                          display: none;\
+                        }\
+                        .popup-message {\
+                          font-size: 18px;\
+                          text-align: center;\
+                        }\
                         </style>\
                         <h1 class=\"top-bar\"><span style=\"color:#000000;\"><span style=\"font-family:Arial,Helvetica,sans-serif;\"><strong>&nbsp; &nbsp;<span style=\"font-size:14px;\"><span style=\"background-color:#ffffff;\">JoeyGE0-GCA8GCR&nbsp;</span></span></strong></span></span><span class=\"settings-button\" id=\"settingsButton\">Settings</span></h1>\
                         <p>&nbsp;</p>\
@@ -108,7 +124,10 @@ const char *htmlPage = "<style type=\"text/css\">\
                           <p style=\"text-align:center\">&nbsp;</p>\
                           <p style=\"text-align:center\"><button class=\"button\" id=\"restartButton\" type=\"button\" style=\"background-color:#FD4646;\">Restart ESP</button></p>\
                           <p style=\"text-align:center\"><span class=\"close-button\">X</span></p>\
-                          <p class=\"last-updated\">Last Updated firmware: May 28, 2023 | Uptime: <span id=\"uptime\"></span></p>\
+                          <p class=\"last-updated\">Version: 2.00  (May 30th, 2023) | Uptime: <span id=\"uptime\"></span></p>\
+                        </div>\
+                        <div class=\"popup-container\" id=\"popupContainer\">\
+                          <p class=\"popup-message\">Restarting... Your connection will be lost!</p>\
                         </div>\
                         <script>\
                         var button = document.getElementById(\"toggleButton\");\
@@ -159,6 +178,8 @@ const char *htmlPage = "<style type=\"text/css\">\
                         }, 1000);\
                         var restartButton = document.getElementById('restartButton');\
                         restartButton.addEventListener('click', function() {\
+                          var popupContainer = document.getElementById('popupContainer');\
+                          popupContainer.style.display = 'block';\
                           fetch('/restart')\
                             .then(response => response.text())\
                             .then(data => {\
@@ -190,7 +211,7 @@ void setup() {
 
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(staticIP, gateway, subnet);
-  WiFi.softAP("JoeyGE0"); //this is the AP name
+  WiFi.softAP("JoeyGE0-GCA8GCR"); //this is the AP name
 
   dnsServer.start(53, "*", staticIP);
 
@@ -217,6 +238,7 @@ void setup() {
 
   server.on("/restart", []() {
     server.send(200, "text/plain", "Restarting ESP...");
+     WiFi.softAPdisconnect(true); 
     delay(2000); // Delay to allow the response to be sent
     ESP.restart();
   });
