@@ -1,4 +1,26 @@
-<style type=\"text/css\">\
+//Code on https://github.com/JoeyGE0/Geocaching-ESP32-captive-portal
+//Code by JoeyGE0. intended for a geocache.
+// Please give credit if possible.
+//version: 1.10 (stable/small bugs)
+#include <WiFi.h>
+#include <DNSServer.h>
+#include <WebServer.h>
+#include <WiFiManager.h>
+
+IPAddress staticIP(192, 168, 1, 50); // ip address of the esp
+IPAddress gateway(192, 168, 68, 1);
+IPAddress subnet(255, 255, 255, 0);
+
+DNSServer dnsServer;
+WebServer server(80);
+
+const int ledPin = 2;    // blue led on esp
+const int buzzerPin = 4; // external buzzer
+const int wateringressPin = 15; // for the water ingress wires
+
+bool darkMode = false; // Dark mode flag
+// put your html below or change it to your liking
+const char *htmlPage = "<style type=\"text/css\">\
                         .top-bar {\
                           background-color: #007bff;\
                           height: 40px;\
@@ -143,4 +165,94 @@
                               console.log(data);\
                             });\
                         });\
-                        </script>
+                        </script>";
+
+int numClients = 0;
+bool buzzerOn = false;
+
+bool waterDetected = false; // Flag for water detection
+
+unsigned long uptimeStart = 0;
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW);  // turn off LED at the beginning
+  pinMode(buzzerPin, OUTPUT);
+  digitalWrite(buzzerPin, LOW);  // turn off buzzer at the beginning
+  pinMode(wateringressPin, INPUT_PULLUP); // configure water ingress pin as input with internal pull-up resistor
+
+  Serial.begin(115200);
+  delay(1000);
+
+  digitalWrite(buzzerPin, HIGH); // make a short beep
+  delay(50);
+  digitalWrite(buzzerPin, LOW);
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(staticIP, gateway, subnet);
+  WiFi.softAP("JoeyGE0"); //this is the AP name
+
+  dnsServer.start(53, "*", staticIP);
+
+  server.onNotFound([]() {
+    server.send(200, "text/html", htmlPage);
+  });
+
+  server.on("/toggle", []() {
+    buzzerOn = !buzzerOn;
+
+    String logMessage = "Buzzer is ";
+    logMessage += (buzzerOn ? "on" : "off");
+    Serial.println(logMessage);
+
+    digitalWrite(buzzerPin, buzzerOn ? HIGH : LOW);
+
+    server.send(200, "text/html", htmlPage);
+  });
+
+  server.on("/uptime", []() {
+    unsigned long uptime = millis() - uptimeStart;
+    server.send(200, "text/plain", String(uptime / 1000));
+  });
+
+  server.on("/restart", []() {
+    server.send(200, "text/plain", "Restarting ESP...");
+    delay(2000); // Delay to allow the response to be sent
+    ESP.restart();
+  });
+
+  server.begin();
+
+  uptimeStart = millis();
+
+  Serial.println("GCA8GCR-A cache by JoeyGE0. These are the logs for the cache.");
+  Serial.print("Cache IP Address: ");
+  Serial.println(staticIP);
+}
+
+void loop() {
+  dnsServer.processNextRequest();
+  server.handleClient();
+
+  int connectedClients = WiFi.softAPgetStationNum();
+
+  // update number of clients connected and turn on LED if a new client connected
+  if (connectedClients != numClients) {
+    numClients = connectedClients;
+    if (numClients > 0) {
+      digitalWrite(ledPin, HIGH);
+      Serial.print("New client connected! Total clients: ");
+      Serial.println(numClients);
+    } else {
+      digitalWrite(ledPin, LOW);
+      Serial.println("All clients disconnected.");
+    }
+  }
+
+  // Check if water has been detected
+  if (digitalRead(wateringressPin) == LOW && !waterDetected) {
+    Serial.println("WATER INGRESS DETECTED! CONTACT JOEYGE0 ASAP!");
+    
+    waterDetected = true;
+  }
+}
