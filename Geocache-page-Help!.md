@@ -11,4 +11,4 @@ If your connected and captive it not auto opening forget the network, reconnect.
 
 
 ### Captive not sending Lock/unlock commands
-please click settings in the top right corner, click resart. 
+please click settings in the top right corner, click restart. 
