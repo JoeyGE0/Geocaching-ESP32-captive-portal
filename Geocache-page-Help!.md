@@ -13,4 +13,4 @@ If your connected and captive it not auto opening forget the network, reconnect.
 please click settings in the top right corner, click restart. if this issue is still present the may be a internal error.
 
 ### What do I do if i see water Ingress detection popup:
-This means significant amounts of water has entered the system. Please navigate to settings, click shutdown if possible. Then contact me.  "water doesn't kill electronics, shorting does" thats why you need to act quick.
+This means significant amounts of water has entered the system. Please navigate to settings, click shutdown if possible. Then contact me.
