@@ -1,0 +1,18 @@
+const char index_html[] PROGMEM = R"=====(
+  <!DOCTYPE html>
+<html>
+<head>
+  <title>My Captive Portal</title>
+  <style>
+    /* Add your CSS styles here */
+  </style>
+  <script> 
+    // Add your JavaScript code here
+  </script>
+</head>
+<body>
+  <h1> </h1>
+  <p> </p>
+</body>
+</html>
+)=====";
