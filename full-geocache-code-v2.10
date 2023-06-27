@@ -1,11 +1,12 @@
 //Code on https://github.com/JoeyGE0/Geocaching-ESP32-captive-portal
 //Code by JoeyGE0. intended for a geocache.
 // Please give credit if possible.
-//version: 2.10 (new html looks with easter eggs)
+//version: 2.21
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <WiFiManager.h>
+
 
 IPAddress staticIP(4, 3, 2, 1); // ip address of the esp if changed it can affect load speeds. dont ask me why
 IPAddress gateway(4, 3, 2, 1); //gateway of the esp if changed it can affect load speeds. dont ask me why
@@ -14,342 +15,758 @@ IPAddress subnet(255, 255, 255, 0);
 DNSServer dnsServer;
 WebServer server(80);
 
-const int ledPin = 2;    // blue led on esp
+const int ledPin = 16;    // external blue led 
+const int redledPin = 17; // external red led 
+const int whiteledPin = 5; // downlight white led 
 const int buzzerPin = 4; // external buzzer
-const int wateringressPin = 15; // for the water ingress wires
+const int switchPin = 18; // Pin connected to the switch
 
 bool darkMode = false; // Dark mode flag
 // put your html below or change it to your liking
 const char htmlPage[] PROGMEM = R"=====(
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
+
 <head>
-   <!DOCTYPE html>
-<html>
-<head>
-  <style>
-    .disable-select {
-      -webkit-user-select: none; /* Safari */
-      -moz-user-select: none; /* Firefox */
-      -ms-user-select: none; /* IE/Edge */
-      user-select: none;
-    }
-  </style>
-</head>
-<body class="disable-select">
-  <!-- Your HTML content -->
-  <h1 class="top-bar">
+	<!DOCTYPE html>
+	<html>
+
+	<head>
+		<style>
+		.disable-select {
+			-webkit-user-select: none;
+			/* Safari */
+			-moz-user-select: none;
+			/* Firefox */
+			-ms-user-select: none;
+			/* IE/Edge */
+			user-select: none;
+		}
+		</style>
+	</head>
+
+	<body class="disable-select">
+
+		<h1 class="top-bar">
     <span style="color:#000000;">
       <span style="font-family:Arial,Helvetica,sans-serif;">
         <strong>&nbsp; &nbsp;<span style="font-size:14px;"><span style="background-color:#;" class="custom-text">JoeyGE0-GCA8GCR&nbsp;</span></span></strong>
       </span>
     </span>
     <span class="settings-button" id="settingsButton">Settings</span>
-  </h1>
+    
+    <div class="alert">
+        
+  <span class="closebtn" onclick="this.parentElement.style.display='none';">&times;</span> 
+ <span id="command-sent">Command Sent!</span> <span id="request-success">Indicates the request was successfully sent</span>
 
-  <p>&nbsp;</p>
-  <p>&nbsp;</p>
-  <h2 style="text-align:center"><strong><span style="font-family:Verdana,Geneva,sans-serif">Congrats on finding this webpage!</span></strong></h2>
-  <p style="text-align:center"><strong><span style="font-family:Verdana,Geneva,sans-serif">Click the button below to open/close the cache</span></strong></p>
-  <p style="text-align:center">&nbsp;</p>
-  <p style="text-align: center;"><button class="button" id="toggleButton" type="button">Lock/unlock</button></p>
-  <div class="logs-container">
-    <h3 style="text-align: center;"><span style="font-family:Tahoma,Geneva,sans-serif;"><strong><u>Settings:</u></strong></span></h3>
-    <div class="dark-mode-container">
-      <label for="darkModeToggle">Dark Mode:</label>
-      <input type="checkbox" id="darkModeToggle" name="darkModeToggle">
+
+</div>
+  </h1>
+		<p>&nbsp;</p>
+		<p>&nbsp;</p>
+		<h2 style="text-align:center"><strong><span style="font-family:Verdana,Geneva,sans-serif">Congrats on finding this webpage!</span></strong></h2>
+		<p style="text-align:center"><strong><span style="font-family:Verdana,Geneva,sans-serif">Click the button below to open the cache</span></strong></p>
+		<p style="text-align:center">&nbsp;</p>
+		<p style="text-align: center;">
+			<button class="button" id="toggleButton" type="button">Lock/unlock</button>
+		</p>
+		<div class="logs-container">
+			<span class="label success">Settings:</span>
+         <p>
+
+			<div class="dark-mode-container">
+				<div class="gg-dark-mode"></div> <label for="darkModeToggle"> ‎ ‎ Dark Mode</label> 
+				<input type="checkbox" class="darkModeToggle" id="darkModeToggle" name="darkModeToggle"> </div> 
+                            <p style="text-align:center">
+				<button class="button" id="restartButton" type="button" style="background-color:#FD4646;">Restart</button>
+			</p>
+			<p style="text-align:center"><span class="close-button">X</span></p>
+			<p class="last-updated">Resarting Kicks All Clients!</p>
+			<p class="last-updated">Version: 2.21 (June 27th, 2023) | Uptime: <span id="uptime"></span></p>
+
+                <button class="button-12" role="button" onclick="openDevPopup()" >DEV/DEBUG</button> 
+     <p>
+<div id="devContainer" class="dev-container hidden">
+     <h3>DEV-DEBUG DASHBOARD</h2>
+    <!-- Add your content for the dev container here -->
+  </div>
+
+
+
+
+		</div>
+		<div class="popup-container" id="popupContainer">
+			<p class="popup-message">Restarting... Your connection will be lost!</p>
+		</div>
+		<div class="container">
+			<h3>CONGRATS, YOU FOUND MY TB!</h3>
+			<p>the code is: GEAD4E </p>
+			<p>Please specify where you found this *no spoilers* </p>
+			<p>This will auto hide </p>
+		</div>
+		<script src="script.js"></script>
+          <div id="devPopup" class="dev hidden">
+    <div class="dev-content">
+      <h2>DEV Login</h2>
+      <button class="close-button-dev" onclick="closeDevPopup()">X</button>
+      <input type="text" id="username" placeholder="Username">
+      <input type="password" id="password" placeholder="Password">
+      <button onclick="validateCredentials()">Submit</button>
     </div>
-    <p style="text-align:center">&nbsp;</p>
-    <p style="text-align:center"><button class="button" id="restartButton" type="button" style="background-color:#FD4646;">Restart</button></p>
-    <p style="text-align:center"><span class="close-button">X</span></p>
-    <p class="last-updated">Resarting Kicks All Clients!</p>
-    <p class="last-updated">Version: 2.10 (June 5th, 2023) | Uptime: <span id="uptime"></span></p>
   </div>
-  <div class="popup-container" id="popupContainer">
-    <p class="popup-message">Restarting... Your connection will be lost!</p>
-  </div>
-  <div class="container">
-    <h3>CONGRATS, YOU FOUND MY TB!</h3>
-    <p>The code is: GEAD4E </p>
-    <p>Please specify where you found this *no spoilers* </p>
-    <p>This will auto hide </p>
-  </div>
+
+
 
   <script src="script.js"></script>
-</body>
-</html> 
-  <style>
-    .top-bar {
-  background-color: #007bff;
-  height: 50px;
-}
-
-.settings-button {
-  position: absolute;
-  top: 35px;
-  right: 20px;
-  font-size: 14px;
-  font-family: Arial, Helvetica, sans-serif;
-  font-weight: bold;
-  color: #000000;
-  cursor: pointer;
-  animation: glow 4s ease-in-out infinite;
-}
-
-@keyframes glow {
-  0%, 100% {
-    text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 15px #ffffff, 0 0 20px #ffffff;
-  }
-  50% {
-    text-shadow: 0 0 10px #ffffff, 0 0 15px #ffffff, 0 0 20px #ffffff, 0 0 25px #ffffff;
-  }
-}
 
 
 
 
+<div class="gg-info"></div>
 
-.logs-container {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(255, 255, 255, 0.9);
-  padding: 80px;
-  border-radius: 10px;
-  z-index: 999;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+
+
+	</html>
+	<style>
+	.top-bar {
+		background-color: #007bff;
+		height: 50px;
+         border-radius: 8px; /* Add rounded edges */
+	}
+	
+	.settings-button {
+		position: absolute;
+		top: 35px;
+		right: 20px;
+		font-size: 14px;
+		font-family: Arial, Helvetica, sans-serif;
+		font-weight: bold;
+		color: #000000;
+		cursor: pointer;
+		animation: glow 4s ease-in-out infinite;
+	}
+	
+	@keyframes glow {
+		0%,
+		100% {
+			text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 15px #ffffff, 0 0 20px #ffffff;
+		}
+		50% {
+			text-shadow: 0 0 10px #ffffff, 0 0 15px #ffffff, 0 0 20px #ffffff, 0 0 25px #ffffff;
+		}
+	}
+	
+	.logs-container {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		background-color: rgba(255, 255, 255, 0.9);
+		padding: 80px;
+		border-radius: 10px;
+		z-index: 999;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+		display: none;
+	}
+		
+
+	.close-button {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		font-size: 18px;
+		font-family: Arial, Helvetica, sans-serif;
+		font-weight: bold;
+		color: #313131;
+		cursor: pointer;
+		text-shadow: 0 0 5px #FF8282, 0 0 10px #FF8282, 0 0 15px #FF8282, 0 0 20px #FF8282;
+	}
+	
+	.dark-mode-container {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: 20px;
+	}
+	
+	.dark-mode-container label {
+		margin-right: 5px;
+		font-weight: bold;
+		font-family: Arial, Helvetica, sans-serif;
+        font-size: 10px;
+	}
+	
+	.last-updated {
+		font-size: 10px;
+		font-family: Arial, Helvetica, sans-serif;
+		color: #999;
+		margin-top: 20px;
+		text-align: center;
+	}
+	
+	.popup-container {
+		position: fixed;
+		top: 25%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		background-color: rgba(255, 255, 255, 0.9);
+		padding: 40px;
+		border-radius: 10px;
+		z-index: 999;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+		display: none;
+	}
+	
+	.popup-message {
+		font-size: 18px;
+		font-family: Arial, Helvetica, sans-serif;
+		font-weight: bold;
+		text-align: center;
+		animation: blink 1.5s linear infinite alternate 0.0s;
+	}
+	
+	@keyframes blink {
+		80% {
+			color: rgb(255, 0, 0)
+		}
+		90% {
+			color: red;
+		}
+		100% {
+			color: rgb(255, 0, 0);
+		}
+	}
+	
+	
+	.top-bar .custom-text {
+		position: left;
+		top: 20px;
+		right: 20px;
+		font-size: 14px;
+		font-family: Arial, Helvetica, sans-serif;
+		font-weight: bold;
+		color: #000000;
+		cursor: pointer;
+		animation: glow 4s ease-in-out infinite;
+	}
+	
+	@keyframes glow {
+		0%,
+		100% {
+			text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 15px #ffffff, 0 0 20px #ffffff;
+		}
+		50% {
+			text-shadow: 0 0 10px #ffffff, 0 0 15px #ffffff, 0 0 20px #ffffff, 0 0 25px #ffffff;
+		}
+	}
+	
+	.container {
+		display: none;
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		background-color: #f1f1f1;
+		padding: 20px;
+		border-radius: 5px;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+	}
+	
+	.container h3 {
+		font-size: 18px;
+		font-family: Arial, Helvetica, sans-serif;
+		font-weight: bold;
+		margin-bottom: 10px;
+	}
+	
+	.container p {
+		font-size: 14px;
+		font-family: Arial, Helvetica, sans-serif;
+		margin-bottom: 5px;
+	}
+	
+	.container p:last-child {
+		margin-bottom: 0;
+	}
+	
+.alert {
   display: none;
-}
-
-.close-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font-size: 18px;
-  font-family: Arial, Helvetica, sans-serif;
-  font-weight: bold;
-  color: #313131;
-  cursor: pointer;
-  text-shadow: 0 0 5px #FF8282, 0 0 10px #FF8282, 0 0 15px #FF8282, 0 0 20px #FF8282;
+  margin-top: 15px;
+  font-family: Verdana, Helvetica, sans-serif;
+  font-size: 12px;
+  padding: 10px;
+  background-color: #02a546;
+  color: white;
+  transition: opacity 0.3s;
+  border-radius: 8px; /* Add rounded edges */
+  
 }
 
 
+.alert.open {
+  display: block;
 
-.dark-mode-container {
+  opacity: 1;
+
+}
+
+	.closebtn {
+		margin-left: 15px;
+		color: white;
+		font-weight: bold;
+		float: right;
+		font-size: 22px;
+		line-height: 20px;
+		cursor: pointer;
+		transition: color 0.3s;
+		/* Added transition property for color change effect */
+	}
+	
+	.closebtn:hover {
+		color: rgb(255, 0, 0);
+	}
+
+
+
+
+    .dev {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20px;
-}
-
-.dark-mode-container label {
-  margin-right: 10px;
-  font-weight: bold;
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-.last-updated {
-  font-size: 10px;
-  font-family: Arial, Helvetica, sans-serif;
-  color: #999;
-  margin-top: 20px;
-  text-align: center;
-}
-
-.popup-container {
-  position: fixed;
-  top: 25%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(255, 255, 255, 0.9);
-  padding: 40px;
-  border-radius: 10px;
   z-index: 999;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-  display: none;
 }
 
-.popup-message {
-  font-size: 18px;
-   font-family: Arial, Helvetica, sans-serif;
-   font-weight: bold;
-   background-color: rgba(250, 236, 236, 0.9);
-  text-align: center;
-  
-}
-
-.button {
-  font-size: 18px;
-  padding: 12px 24px;
-  border: none;
-  color: white;
-  background-color: #007bff;
-  border-radius: 25px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-  transition: transform 0.2s ease;
-}
-
-.button:hover {
-  transform: scale(1.05);
-  
-}
-
-.button:active {
-  transform: scale(0.95);
-  
-}
-.top-bar .custom-text {
-  position: left;
-  top: 20px;
-  right: 20px;
-  font-size: 14px;
-  font-family: Arial, Helvetica, sans-serif;
-  font-weight: bold;
-  color: #000000;
-  cursor: pointer;
-  animation: glow 4s ease-in-out infinite;
-}
-
-@keyframes glow {
-  0%, 100% {
-    text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 15px #ffffff, 0 0 20px #ffffff;
-  }
-  50% {
-    text-shadow: 0 0 10px #ffffff, 0 0 15px #ffffff, 0 0 20px #ffffff, 0 0 25px #ffffff;
-  }
-}
-.container {
-  display: none;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: #f1f1f1;
+.dev-content {
+  background-color: white;
   padding: 20px;
   border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  position: relative;
+  font-size: 12px;
+  font-family: Tahoma, Helvetica, sans-serif;
 }
 
-.container h3 {
-  font-size: 18px;
-  font-family: Arial, Helvetica, sans-serif;
+.close-button-dev {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 5px;
+  background-color: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.dev-container {
+  margin-top: 20px;
+  padding: 10px;
+  background-color: lightgray;
+}
+
+.hidden {
+  display: none;
+}
+
+
+	.devDebugBtn {
+		font-size: 12px;
+		padding: 12px 24px;
+		border: none;
+		color: white;
+		border-radius: 25px;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+		transition: transform 0.2s ease;
+	}
+
+
+
+
+
+/* CSS */
+.button-12 {
+  display: flex;
+  text-align: center;
+  flex-direction: fixed;
+  align-items: center;
+  padding: 6px 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+  border-radius: 6px;
+  border: none;
+
+  background: #6E6D70;
+  box-shadow: 0px 0.5px 1px rgba(0, 0, 0, 0.1), inset 0px 0.5px 0.5px rgba(255, 255, 255, 0.5), 0px 0px 0px 0.5px rgba(0, 0, 0, 0.12);
+  color: #DFDEDF;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.button-12:focus {
+  box-shadow: inset 0px 0.8px 0px -0.25px rgba(255, 255, 255, 0.2), 0px 0.5px 1px rgba(0, 0, 0, 0.1), 0px 0px 0px 3.5px rgba(58, 108, 217, 0.5);
+  outline: 0;
+}
+
+.label {
+  color: rgb(0, 0, 0);
+  padding: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
   font-weight: bold;
-  margin-bottom: 10px;
+
 }
 
-.container p {
-  font-size: 14px;
-  font-family: Arial, Helvetica, sans-serif;
-  margin-bottom: 5px;
+
+.success {background-color: #7df89c;
 }
 
-.container p:last-child {
-  margin-bottom: 0;
+
+/* checkbox settings 👇 */
+
+.darkModeToggle {
+  --primary-color: #1677ff;
+  --secondary-color: #fff;
+  --primary-hover-color: #4096ff;
+  /* checkbox */
+  --checkbox-diameter: 17px;
+  --checkbox-border-radius: 5px;
+  --checkbox-border-color: #d9d9d9;
+  --checkbox-border-width: 2px;
+  --checkbox-border-style: solid;
+  /* checkmark */
+  --checkmark-size: 1.2;
 }
-  </style>
-  <script> 
-    var button = document.getElementById("toggleButton");
-button.addEventListener("click", function() {
-  fetch('/toggle')
-    .then(response => response.text())
-    .then(data => {
-      console.log(data);
-    });
-});
 
-var settingsButton = document.getElementById("settingsButton");
-var logsContainer = document.querySelector('.logs-container');
-settingsButton.addEventListener("click", function() {
-  logsContainer.style.display = 'block';
-});
+.darkModeToggle, 
+.darkModeToggle *, 
+.darkModeToggle *::before, 
+.darkModeToggle *::after {
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
 
-var closeButton = logsContainer.querySelector('.close-button');
-closeButton.addEventListener('click', function() {
-  logsContainer.style.display = 'none';
-});
+.darkModeToggle {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: var(--checkbox-diameter);
+  height: var(--checkbox-diameter);
+  border-radius: var(--checkbox-border-radius);
+  background: var(--secondary-color);
+  border: var(--checkbox-border-width) var(--checkbox-border-style) var(--checkbox-border-color);
+  -webkit-transition: all 0.3s;
+  -o-transition: all 0.3s;
+  transition: all 0.3s;
+  cursor: pointer;
+  position: relative;
+}
 
-var darkModeToggle = document.getElementById('darkModeToggle');
-darkModeToggle.addEventListener('change', function() {
-  if (darkModeToggle.checked) {
-    document.body.style.backgroundColor = '#000000';
-    document.body.style.color = '#ffffff';
-    document.querySelector('.logs-container').style.backgroundColor = '#353535';
-    document.querySelector('.logs-container').style.color = '#ffffff';
-    darkMode = true;
+.darkModeToggle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  -webkit-box-shadow: 0 0 0 calc(var(--checkbox-diameter) / 2.5) var(--primary-color);
+  box-shadow: 0 0 0 calc(var(--checkbox-diameter) / 2.5) var(--primary-color);
+  border-radius: inherit;
+  opacity: 0;
+  -webkit-transition: all 0.5s cubic-bezier(0.12, 0.4, 0.29, 1.46);
+  -o-transition: all 0.5s cubic-bezier(0.12, 0.4, 0.29, 1.46);
+  transition: all 0.5s cubic-bezier(0.12, 0.4, 0.29, 1.46);
+}
+
+.darkModeToggle::before {
+  top: 40%;
+  left: 50%;
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 7px;
+  border-right: 2px solid var(--secondary-color);
+  border-bottom: 2px solid var(--secondary-color);
+  -webkit-transform: translate(-50%, -50%) rotate(45deg) scale(0);
+  -ms-transform: translate(-50%, -50%) rotate(45deg) scale(0);
+  transform: translate(-50%, -50%) rotate(45deg) scale(0);
+  opacity: 0;
+  -webkit-transition: all 0.1s cubic-bezier(0.71, -0.46, 0.88, 0.6),opacity 0.1s;
+  -o-transition: all 0.1s cubic-bezier(0.71, -0.46, 0.88, 0.6),opacity 0.1s;
+  transition: all 0.1s cubic-bezier(0.71, -0.46, 0.88, 0.6),opacity 0.1s;
+}
+
+/* actions */
+
+.darkModeToggle:hover {
+  border-color: var(--primary-color);
+}
+
+.darkModeToggle:checked {
+  background: var(--primary-color);
+  border-color: transparent;
+}
+
+.darkModeToggle:checked::before {
+  opacity: 1;
+  -webkit-transform: translate(-50%, -50%) rotate(45deg) scale(var(--checkmark-size));
+  -ms-transform: translate(-50%, -50%) rotate(45deg) scale(var(--checkmark-size));
+  transform: translate(-50%, -50%) rotate(45deg) scale(var(--checkmark-size));
+  -webkit-transition: all 0.2s cubic-bezier(0.12, 0.4, 0.29, 1.46) 0.1s;
+  -o-transition: all 0.2s cubic-bezier(0.12, 0.4, 0.29, 1.46) 0.1s;
+  transition: all 0.2s cubic-bezier(0.12, 0.4, 0.29, 1.46) 0.1s;
+}
+
+.darkModeToggle:active:not(:checked)::after {
+  -webkit-transition: none;
+  -o-transition: none;
+  -webkit-box-shadow: none;
+  box-shadow: none;
+  transition: none;
+  opacity: 1;
+}
+
+
+/* icons */
+
+
+ .gg-danger {
+ box-sizing: border-box;
+ position: relative;
+ display: block;
+ transform: scale(var(--ggs,1));
+ width: 20px;
+ height: 20px;
+ border: 2px solid;
+ border-radius: 40px
+}
+
+.gg-danger::after,
+.gg-danger::before {
+ content: "";
+ display: block;
+ box-sizing: border-box;
+ position: absolute;
+ border-radius: 3px;
+ width: 2px;
+ background: currentColor;
+ left: 7px
+}
+
+.gg-danger::after {
+ top: 2px;
+ height: 8px
+}
+
+.gg-danger::before {
+ height: 2px;
+ bottom: 2px
+} 
+
+
+
+.gg-dark-mode {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  transform: scale(var(--ggs, 1.8));
+  border: 1px solid;
+  border-radius: 50px;
+  width: 10px;
+  height: 10px;
+}
+
+.gg-dark-mode::after,
+.gg-dark-mode::before {
+  content: "";
+  box-sizing: border-box;
+  position: absolute;
+  display: block;
+}
+
+.gg-dark-mode::before {
+  border: 2.5px solid;
+  border-top-left-radius: 50px;
+  border-bottom-left-radius: 50px;
+  border-right: 0;
+  width: 4.5px;
+  height: 9px;
+  top: -0.5px;
+  left: -0.5px;
+}
+
+.gg-dark-mode::after {
+  border: 2px solid;
+  border-top-right-radius: 50px;
+  border-bottom-right-radius: 50px;
+  border-left: 0;
+  width: 2px;
+  height: 4px;
+  right: 2px;
+  top: 2px;
+}
+
+.container {
+  position: relative;
+}
+
+
+/* icons */
+
+	.button {
+		font-size: 18px;
+		padding: 12px 24px;
+		border: none;
+		color: white;
+		background-color: #007bff;
+		border-radius: 25px;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+		transition: transform 0.2s ease;
+	}
+	
+	.button:hover {
+		transform: scale(1.05);
+	}
+	
+	.button:active {
+		transform: scale(0.95);
+	}
+
+	</style>
+	<script>
+	var button = document.getElementById("toggleButton");
+	button.addEventListener("click", function() {
+		fetch('/toggle').then(response => response.text()).then(data => {
+			console.log(data);
+			var alertDiv = document.querySelector('.alert');
+			alertDiv.style.display = 'block'; // Set the display property to 'block'
+			setTimeout(function() {
+				alertDiv.style.display = 'none'; // Set the display property to 'none' after 5 seconds
+			}, 5000);
+		});
+	});
+	var settingsButton = document.getElementById("settingsButton");
+	var logsContainer = document.querySelector('.logs-container');
+	settingsButton.addEventListener("click", function() {
+		logsContainer.style.display = 'block';
+	});
+	var closeButton = logsContainer.querySelector('.close-button');
+	closeButton.addEventListener('click', function() {
+		logsContainer.style.display = 'none';
+	});
+	var darkModeToggle = document.getElementById('darkModeToggle');
+	darkModeToggle.addEventListener('change', function() {
+		if(darkModeToggle.checked) {
+			document.body.style.backgroundColor = '#000000';
+			document.body.style.color = '#ffffff';
+			document.querySelector('.logs-container').style.backgroundColor = '#353535';
+			document.querySelector('.logs-container').style.color = '#ffffff';
+			darkMode = true;
+		} else {
+			document.body.style.backgroundColor = '';
+			document.body.style.color = '';
+			document.querySelector('.logs-container').style.backgroundColor = '';
+			document.querySelector('.logs-container').style.color = '';
+			darkMode = false;
+		}
+	});
+	var uptimeElement = document.getElementById('uptime');
+	setInterval(function() {
+		fetch('/uptime').then(response => response.text()).then(data => {
+			var seconds = parseInt(data, 10);
+			var hours = Math.floor(seconds / 3600);
+			seconds %= 3600;
+			var minutes = Math.floor(seconds / 60);
+			seconds %= 60;
+			uptimeElement.innerText = hours + 'h:' + minutes + 'm:' + seconds + 's';
+		});
+	}, 1000);
+	var restartButton = document.getElementById('restartButton');
+	restartButton.addEventListener('click', function() {
+		var popupContainer = document.getElementById('popupContainer');
+		popupContainer.style.display = 'block';
+		fetch('/restart').then(response => response.text()).then(data => {
+			console.log(data);
+
+                  setTimeout(function() {
+        popupContainer.style.display = 'none'; // Set the display property to 'none' after 5 seconds
+      }, 5000);
+		});
+	});
+	var clickCounter = 0;
+	var container = document.querySelector('.container');
+
+	function openContainer() {
+		clickCounter++;
+		if(clickCounter >= 5) {
+			container.style.display = 'block';
+			customText.removeEventListener('click', openContainer);
+			setTimeout(function() {
+				container.style.display = 'none';
+			}, 20000); // 20 seconds
+		}
+	}
+	var customText = document.querySelector('.custom-text');
+	customText.addEventListener('click', openContainer);
+
+
+
+
+
+
+function openDevPopup() {
+  document.getElementById("devPopup").classList.remove("hidden");
+}
+
+function closeDevPopup() {
+  document.getElementById("devPopup").classList.add("hidden");
+}
+
+function validateCredentials() {
+  var username = document.getElementById("username").value;
+  var password = document.getElementById("password").value;
+
+  // Add your own validation logic here
+  if (username === "JoeyGE0" && password === "GEAD4E") {
+    document.getElementById("devPopup").classList.add("hidden");
+    document.getElementById("devContainer").classList.remove("hidden");
   } else {
-    document.body.style.backgroundColor = '';
-    document.body.style.color = '';
-    document.querySelector('.logs-container').style.backgroundColor = '';
-    document.querySelector('.logs-container').style.color = '';
-    darkMode = false;
-  }
-});
-
-var uptimeElement = document.getElementById('uptime');
-setInterval(function() {
-  fetch('/uptime')
-    .then(response => response.text())
-    .then(data => {
-      var seconds = parseInt(data, 10);
-      var hours = Math.floor(seconds / 3600);
-      seconds %= 3600;
-      var minutes = Math.floor(seconds / 60);
-      seconds %= 60;
-      uptimeElement.innerText = hours + 'h:' + minutes + 'm:' + seconds + 's';
-    });
-}, 1000);
-
-var restartButton = document.getElementById('restartButton');
-restartButton.addEventListener('click', function() {
-  var popupContainer = document.getElementById('popupContainer');
-  popupContainer.style.display = 'block';
-  fetch('/restart')
-    .then(response => response.text())
-    .then(data => {
-      console.log(data);
-    });
-});
-var clickCounter = 0;
-var container = document.querySelector('.container');
-
-function openContainer() {
-  clickCounter++;
-  if (clickCounter >= 5) {
-    container.style.display = 'block';
-    customText.removeEventListener('click', openContainer);
-    setTimeout(function() {
-      container.style.display = 'none';
-    }, 20000); // 20 seconds
+    alert("Invalid credentials!");
   }
 }
 
-var customText = document.querySelector('.custom-text');
-customText.addEventListener('click', openContainer);
-  </script>
-</head>
-<body>
-  <h1> </h1>
-  <p> </p>
-</body>
+
+	</script>
+	</body>
+
 </html>
 )=====";
+
+
+
 
 
 int numClients = 0;
 bool buzzerOn = false;
 
-bool waterDetected = false; // Flag for water detection
 
 unsigned long uptimeStart = 0;
 
 void setup() {
+
   pinMode(ledPin, OUTPUT);
+  pinMode(switchPin, INPUT_PULLUP);
+    pinMode(redledPin, OUTPUT);
+    pinMode(whiteledPin, OUTPUT);
   digitalWrite(ledPin, LOW);  // turn off LED at the beginning
+  digitalWrite(whiteledPin, LOW);
+   digitalWrite(redledPin, HIGH);
   pinMode(buzzerPin, OUTPUT);
   digitalWrite(buzzerPin, LOW);  // turn off buzzer at the beginning
-  pinMode(wateringressPin, INPUT_PULLUP); // configure water ingress pin as input with internal pull-up resistor
-
   Serial.begin(115200);
   delay(1000);
 
@@ -360,12 +777,18 @@ void setup() {
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(staticIP, gateway, subnet);
   WiFi.softAP("JoeyGE0-GCA8GCR"); //this is the AP name
+  Serial.println("AP initialized");
 
   dnsServer.start(53, "*", staticIP);
-
+  Serial.println("DNS initialized");
+  digitalWrite(redledPin, LOW);
   server.onNotFound([]() {
     server.send(200, "text/html", htmlPage);
+
+
   });
+
+
 
   server.on("/toggle", []() {
     buzzerOn = !buzzerOn;
@@ -387,7 +810,16 @@ void setup() {
   server.on("/restart", []() {
     server.send(200, "text/plain", "Restarting ESP...");
      WiFi.softAPdisconnect(true); 
+       digitalWrite(buzzerPin, HIGH); // make a short beep
+         digitalWrite(redledPin, HIGH); // use analogWrite(ledPin, 128); for dimming
+  delay(50);
+  digitalWrite(buzzerPin, LOW);
+   delay(50);
+        digitalWrite(buzzerPin, HIGH); // make a short beep
+         delay(75);
+        digitalWrite(buzzerPin, LOW);
     delay(2000); // Delay to allow the response to be sent
+    Serial.println("restarting...");
     ESP.restart();
   });
 
@@ -396,34 +828,48 @@ void setup() {
 
   uptimeStart = millis();
 
-  Serial.println("GCA8GCR-A cache by JoeyGE0. These are the logs for the cache.");
   Serial.print("Cache IP Address: ");
   Serial.println(staticIP);
+  Serial.println("  GPIO Layout: Blue LED = 16, Red LED = 17, External Buzzer = 4, Door Switch = 18");
 }
 
 void loop() {
+    int switchState = digitalRead(switchPin);
+      if (switchState == HIGH) {
+    digitalWrite(whiteledPin, LOW);   // Turn on the light
+  } else {
+    digitalWrite(whiteledPin, HIGH);    // Turn off the light
+  }
+
   dnsServer.processNextRequest();
   server.handleClient();
 
   int connectedClients = WiFi.softAPgetStationNum();
+   
+   
+   if (numClients == 0) {
+      analogWrite(ledPin, 8);
+    delay(200);
+    analogWrite(ledPin, 0);
+    delay(200);
+        analogWrite(ledPin, 8); 
+    delay(200);
+    analogWrite(ledPin, 0);
+    delay(1300);
+}
 
   // update number of clients connected and turn on LED if a new client connected
   if (connectedClients != numClients) {
     numClients = connectedClients;
     if (numClients > 0) {
-      digitalWrite(ledPin, HIGH);
+      analogWrite(ledPin, 255);
       Serial.print("New client connected! Total clients: ");
       Serial.println(numClients);
     } else {
-      digitalWrite(ledPin, LOW);
+      analogWrite(ledPin, 0);
       Serial.println("All clients disconnected.");
     }
   }
-
-  // Check if water has been detected
-  if (digitalRead(wateringressPin) == LOW && !waterDetected) {
-    Serial.println("WATER INGRESS DETECTED! CONTACT JOEYGE0 ASAP!");
-    
-    waterDetected = true;
-  }
 }
+
+
