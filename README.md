@@ -1,4 +1,4 @@
-![de:hub.de-Projekt](IMG_2696.JPG | width=100)
+![de:hub.de-Projekt](IMG_2696.JPG  =250x250)
 
 # help and troubleshooting (Geocaching page)
 
