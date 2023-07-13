@@ -1,3 +1,5 @@
+![de:hub.de-Projekt](IMG_2696.JPG)
+
 # help and troubleshooting (Geocaching page)
 
 ### status LED colours 
