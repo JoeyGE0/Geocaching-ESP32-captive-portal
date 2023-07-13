@@ -26,7 +26,7 @@ please click settings in the top right corner, and click restart, once successfu
 ### device won't power on:
 This means the battery is probably low and can't power on, check solar panel is clean and not damaged. if no LEDs are on that means the controller is not running.
 
-### cache led stuck on RED
+### cache led stuck on RED 
 
 the led should only remain red for a second or two when pressed meaning it's starting. it it stays red it means something went wrong with the config. 
 
