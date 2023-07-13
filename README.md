@@ -1,5 +1,5 @@
 # help and troubleshooting (Geocaching page)
-<img src="IMG_2696.JPG" alt="drawing" width="400"/>
+<img src="IMG_2696.JPG" alt="drawing" width="400"/> <img src="IMG_2696.JPG" alt="drawing" width="200"/>
 
 ### status LED colours 
 
