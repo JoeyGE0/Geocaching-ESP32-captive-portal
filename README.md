@@ -1,7 +1,5 @@
-<img src="IMG_2696.JPG" alt="drawing" width="400"/>
-<img src="IMG_2694.JPG" alt="drawing" width="200"/>
-
 # help and troubleshooting (Geocaching page)
+<img src="IMG_2696.JPG" alt="drawing" width="400"/>
 
 ### status LED colours 
 
@@ -29,4 +27,5 @@ This means the battery is probably low and can't power on, check solar panel is 
 ### cache led stuck on RED
 
 the led should only remain red for a second or two when pressed meaning it's starting. it it stays red it means something went wrong with the config. 
+
 
