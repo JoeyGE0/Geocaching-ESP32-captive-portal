@@ -1,4 +1,5 @@
-![de:hub.de-Projekt](IMG_2696.JPG) {width=50 height=100}
+![de:hub.de-Projekt](IMG_2696.JPG)
+<img src="IMG_2694.JPG" alt="drawing" width="200"/>
 
 # help and troubleshooting (Geocaching page)
 
