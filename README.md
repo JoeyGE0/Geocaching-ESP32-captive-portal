@@ -1,4 +1,3 @@
-![de:hub.de-Projekt](IMG_2696.JPG)
 <img src="IMG_2696.JPG" alt="drawing" width="400"/>
 <img src="IMG_2694.JPG" alt="drawing" width="200"/>
 
